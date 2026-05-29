@@ -1,0 +1,1582 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Epicure — ingredient map</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=DM+Mono:ital,wght@0,300;0,400;0,500;1,300&family=DM+Sans:opsz,wght@9..40,300;9..40,400;9..40,500&display=swap" rel="stylesheet">
+<style>
+/* ─── tokens ─────────────────────────────────────────── */
+:root {
+  --cyan:        #00e5ff;
+  --cyan-dim:    #00b8cc;
+  --cyan-faint:  rgba(0,229,255,.07);
+  --bg:          #0b0b0b;
+  --surface:     #111;
+  --surface2:    #191919;
+  --border:      #222;
+  --border2:     #333;
+  --text:        #e6e6e6;
+  --text-dim:    #888;
+  --text-faint:  #444;
+}
+[data-theme="light"] {
+  --bg:          #f4f4f4;
+  --surface:     #fff;
+  --surface2:    #ececec;
+  --border:      #d6d6d6;
+  --border2:     #bbb;
+  --text:        #111;
+  --text-dim:    #555;
+  --text-faint:  #bbb;
+  --cyan-faint:  rgba(0,160,200,.07);
+}
+
+/* ─── reset ──────────────────────────────────────────── */
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+html{font-size:14px}
+body{
+  font-family:'DM Sans',sans-serif;font-weight:300;
+  background:var(--bg);color:var(--text);
+  min-height:100vh;display:flex;flex-direction:column;
+  overflow:hidden;transition:background .2s,color .2s;
+}
+a{color:var(--cyan);text-decoration:none}
+a:hover{text-decoration:underline}
+button{cursor:pointer;font-family:inherit;font-size:inherit}
+input,select{font-family:inherit;font-size:inherit}
+svg{display:block}
+
+/* ─── shell ──────────────────────────────────────────── */
+.shell{display:flex;flex-direction:column;height:100vh}
+
+/* ─── topbar ─────────────────────────────────────────── */
+.topbar{
+  height:46px;min-height:46px;
+  background:var(--surface);border-bottom:1px solid var(--border);
+  display:flex;align-items:center;padding:0 14px;gap:10px;
+  position:relative;z-index:100;flex-shrink:0;
+}
+.wordmark{
+  font-family:'DM Mono',monospace;font-weight:500;font-size:14px;
+  color:var(--cyan);letter-spacing:-.02em;flex-shrink:0;white-space:nowrap;
+}
+.wordmark span{color:var(--text-faint);font-weight:300;font-size:12px}
+.topbar-gap{flex:1}
+
+.nav-pills{display:flex;gap:2px;flex-shrink:0}
+.nav-pill{
+  background:none;border:none;color:var(--text-dim);
+  padding:5px 11px;border-radius:4px;font-size:12.5px;
+  transition:background .12s,color .12s;
+}
+.nav-pill:hover{background:var(--surface2);color:var(--text)}
+.nav-pill.active{background:var(--cyan-faint);color:var(--cyan)}
+
+.icon-btn{
+  background:none;border:1px solid var(--border);color:var(--text-dim);
+  width:30px;height:30px;border-radius:5px;
+  display:flex;align-items:center;justify-content:center;flex-shrink:0;
+  transition:border-color .12s,color .12s,background .12s;
+}
+.icon-btn:hover{border-color:var(--border2);color:var(--text);background:var(--surface2)}
+.icon-btn.active{border-color:var(--cyan);color:var(--cyan);background:var(--cyan-faint)}
+
+/* theme toggle */
+.theme-toggle{
+  background:none;border:1px solid var(--border);
+  border-radius:20px;width:46px;height:24px;
+  position:relative;cursor:pointer;flex-shrink:0;
+  transition:border-color .2s;
+}
+.theme-toggle:hover{border-color:var(--cyan-dim)}
+.toggle-knob{
+  position:absolute;top:3px;left:3px;width:16px;height:16px;
+  border-radius:50%;background:var(--text-dim);
+  transition:transform .22s cubic-bezier(.4,0,.2,1),background .2s;
+}
+[data-theme="light"] .toggle-knob{transform:translateX(22px);background:var(--cyan)}
+
+/* ─── workspace ──────────────────────────────────────── */
+.workspace{display:flex;flex:1;min-height:0}
+
+/* ─── sidebar ────────────────────────────────────────── */
+.sidebar{
+  width:220px;min-width:220px;background:var(--surface);
+  border-right:1px solid var(--border);
+  display:flex;flex-direction:column;overflow:hidden;
+  transition:width .22s cubic-bezier(.4,0,.2,1),min-width .22s;
+  flex-shrink:0;
+}
+.sidebar.collapsed{width:0;min-width:0}
+.sidebar-inner{width:220px;display:flex;flex-direction:column;height:100%;overflow-y:auto}
+.sb-head{
+  padding:11px 14px 5px;
+  font-family:'DM Mono',monospace;font-size:10px;
+  letter-spacing:.07em;color:var(--text-faint);
+  border-bottom:1px solid var(--border);
+}
+.sb-item{
+  display:flex;align-items:center;gap:9px;padding:8px 14px;
+  color:var(--text-dim);font-size:12.5px;cursor:pointer;
+  border:none;background:none;width:100%;text-align:left;
+  transition:background .1s,color .1s;
+}
+.sb-item:hover{background:var(--surface2);color:var(--text)}
+.sb-item.active{color:var(--cyan);background:var(--cyan-faint)}
+.sb-item svg{flex-shrink:0;opacity:.7}
+.sb-badge{
+  margin-left:auto;font-family:'DM Mono',monospace;font-size:10px;
+  color:var(--text-faint);background:var(--surface2);
+  padding:1px 5px;border-radius:3px;
+}
+.model-row{padding:10px 14px;border-bottom:1px solid var(--border)}
+.model-label{font-size:10px;font-family:'DM Mono',monospace;color:var(--text-faint);letter-spacing:.06em;margin-bottom:5px}
+.model-chips{display:flex;gap:4px;flex-wrap:wrap}
+.m-chip{
+  font-size:11px;font-family:'DM Mono',monospace;
+  padding:3px 8px;border-radius:3px;border:1px solid var(--border);
+  color:var(--text-dim);background:none;cursor:pointer;
+  transition:border-color .12s,color .12s,background .12s;
+}
+.m-chip:hover{border-color:var(--border2);color:var(--text)}
+.m-chip.active{border-color:var(--cyan);color:var(--cyan);background:var(--cyan-faint)}
+
+/* ─── main ───────────────────────────────────────────── */
+.main{flex:1;min-width:0;display:flex;flex-direction:column;position:relative}
+.view{display:none;flex:1;flex-direction:column;min-height:0}
+.view.active{display:flex}
+
+/* ─── map toolbar ────────────────────────────────────── */
+.map-toolbar{
+  height:38px;min-height:38px;background:var(--surface);
+  border-bottom:1px solid var(--border);
+  display:flex;align-items:center;padding:0 12px;gap:8px;flex-shrink:0;
+}
+.search-wrap{
+  display:flex;align-items:center;gap:6px;
+  background:var(--surface2);border:1px solid var(--border);
+  border-radius:4px;padding:0 9px;flex:1;max-width:260px;height:26px;
+  transition:border-color .12s;
+}
+.search-wrap:focus-within{border-color:var(--cyan-dim)}
+.search-wrap input{background:none;border:none;outline:none;color:var(--text);font-size:12px;width:100%}
+.search-wrap input::placeholder{color:var(--text-faint)}
+.toolbar-div{width:1px;height:16px;background:var(--border);margin:0 2px}
+.tag-chips{display:flex;gap:3px;overflow-x:auto;scrollbar-width:none}
+.tag-chips::-webkit-scrollbar{display:none}
+.t-chip{
+  font-size:11px;padding:3px 8px;border-radius:3px;
+  border:1px solid var(--border);color:var(--text-dim);background:none;
+  cursor:pointer;white-space:nowrap;flex-shrink:0;
+  transition:border-color .1s,color .1s,background .1s;
+}
+.t-chip:hover{border-color:var(--border2);color:var(--text)}
+.t-chip.active{border-color:var(--cyan);color:var(--cyan);background:var(--cyan-faint)}
+
+/* ─── canvas ─────────────────────────────────────────── */
+.canvas-wrap{flex:1;position:relative;overflow:hidden;background:var(--bg)}
+#mapCanvas{position:absolute;top:0;left:0;cursor:grab}
+#mapCanvas:active{cursor:grabbing}
+
+/* loading overlay */
+.loading-overlay{
+  position:absolute;inset:0;display:flex;flex-direction:column;
+  align-items:center;justify-content:center;z-index:20;
+  background:var(--bg);gap:14px;
+}
+.loading-overlay.hidden{display:none}
+.loader-ring{
+  width:36px;height:36px;border-radius:50%;
+  border:2px solid var(--border);
+  border-top-color:var(--cyan);
+  animation:spin .8s linear infinite;
+}
+@keyframes spin{to{transform:rotate(360deg)}}
+.load-msg{font-family:'DM Mono',monospace;font-size:11px;color:var(--text-dim)}
+.load-progress{
+  width:200px;height:3px;background:var(--border);border-radius:2px;overflow:hidden;
+}
+.load-progress-bar{
+  height:100%;background:var(--cyan);border-radius:2px;
+  width:0%;transition:width .3s;
+}
+.load-error{color:#ef5350;font-size:12px;text-align:center;max-width:280px;line-height:1.6}
+
+/* tooltip */
+.tooltip{
+  position:absolute;pointer-events:none;
+  background:var(--surface);border:1px solid var(--border2);
+  border-radius:6px;padding:9px 12px;font-size:12px;
+  max-width:190px;z-index:50;
+  opacity:0;transform:translateY(4px);
+  transition:opacity .1s,transform .1s;
+}
+.tooltip.vis{opacity:1;transform:translateY(0)}
+.tt-name{font-weight:500;color:var(--text);margin-bottom:5px;font-size:13px}
+.tt-row{display:flex;justify-content:space-between;gap:10px;color:var(--text-dim);font-size:11px;margin-bottom:2px}
+.tt-val{font-family:'DM Mono',monospace;color:var(--cyan)}
+
+/* zoom controls */
+.zoom-btns{position:absolute;bottom:12px;left:12px;display:flex;gap:3px}
+.z-btn{
+  width:26px;height:26px;background:var(--surface);
+  border:1px solid var(--border);color:var(--text-dim);
+  border-radius:4px;display:flex;align-items:center;justify-content:center;
+  font-size:15px;transition:border-color .1s,color .1s;
+}
+.z-btn:hover{border-color:var(--border2);color:var(--text)}
+.map-info{
+  position:absolute;bottom:12px;right:12px;
+  font-family:'DM Mono',monospace;font-size:10px;color:var(--text-faint);
+  background:var(--surface);border:1px solid var(--border);
+  border-radius:4px;padding:4px 9px;pointer-events:none;
+}
+
+/* selection panel */
+.sel-panel{
+  position:absolute;top:8px;right:8px;width:196px;
+  background:var(--surface);border:1px solid var(--border2);
+  border-radius:7px;padding:12px;z-index:30;display:none;
+}
+.sel-panel.vis{display:block}
+.sel-close{
+  position:absolute;top:8px;right:8px;background:none;border:none;
+  color:var(--text-faint);display:flex;align-items:center;justify-content:center;
+}
+.sel-close:hover{color:var(--text)}
+.sel-name{font-weight:500;font-size:13.5px;color:var(--text);margin-bottom:10px;padding-right:18px}
+.sel-ax{margin-bottom:7px}
+.ax-lbl{font-family:'DM Mono',monospace;font-size:9.5px;color:var(--text-faint);letter-spacing:.06em;margin-bottom:3px}
+.ax-bg{height:3px;background:var(--border);border-radius:2px;overflow:hidden}
+.ax-fill{height:100%;background:var(--cyan);border-radius:2px;transition:width .25s}
+.sim-head{font-size:9.5px;font-family:'DM Mono',monospace;color:var(--text-faint);letter-spacing:.06em;margin:10px 0 5px}
+.sim-item{font-size:11.5px;color:var(--text-dim);padding:3px 0;border-bottom:1px solid var(--border);display:flex;justify-content:space-between}
+.sim-item:last-child{border-bottom:none}
+.sim-score{font-family:'DM Mono',monospace;font-size:10.5px;color:var(--cyan)}
+
+/* ─── pairing view ───────────────────────────────────── */
+.pair-wrap{flex:1;overflow-y:auto;padding:26px 28px}
+.v-head{font-size:17px;font-weight:400;color:var(--text);margin-bottom:5px}
+.v-sub{font-size:12px;color:var(--text-dim);margin-bottom:20px}
+.pair-row{display:flex;gap:8px;margin-bottom:20px;flex-wrap:wrap}
+.pair-input{
+  flex:1;min-width:130px;background:var(--surface2);
+  border:1px solid var(--border);border-radius:4px;
+  color:var(--text);padding:7px 11px;outline:none;font-size:13px;
+  transition:border-color .12s;
+}
+.pair-input:focus{border-color:var(--cyan-dim)}
+.pair-go{
+  background:var(--cyan-faint);border:1px solid var(--cyan);
+  color:var(--cyan);border-radius:4px;padding:7px 16px;
+  transition:background .12s;
+}
+.pair-go:hover{background:rgba(0,229,255,.14)}
+.pair-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(145px,1fr));gap:7px}
+.p-card{
+  background:var(--surface);border:1px solid var(--border);
+  border-radius:5px;padding:11px;cursor:pointer;
+  transition:border-color .12s;
+}
+.p-card:hover{border-color:var(--cyan-dim)}
+.p-card-name{font-size:12.5px;color:var(--text);margin-bottom:3px}
+.p-card-score{font-family:'DM Mono',monospace;font-size:11px;color:var(--cyan)}
+.p-tags{display:flex;gap:3px;flex-wrap:wrap;margin-top:5px}
+.p-tag{font-size:10px;padding:1px 5px;background:var(--surface2);border-radius:2px;color:var(--text-faint)}
+
+/* ─── docs view ──────────────────────────────────────── */
+.docs-wrap{flex:1;overflow-y:auto;padding:28px}
+.docs-cols{display:grid;grid-template-columns:200px 1fr;gap:28px;max-width:860px}
+.docs-nav{position:sticky;top:0;align-self:start}
+.dn-item{
+  display:block;padding:5px 0 5px 12px;color:var(--text-dim);font-size:12.5px;
+  cursor:pointer;border:none;background:none;text-align:left;width:100%;
+  border-left:2px solid var(--border);transition:color .1s,border-color .1s;
+}
+.dn-item:hover{color:var(--text)}
+.dn-item.active{color:var(--cyan);border-color:var(--cyan)}
+.dc{margin-bottom:36px}
+.dc h1{font-size:21px;font-weight:400;color:var(--text);margin-bottom:9px}
+.dc h2{font-size:14px;font-weight:500;color:var(--text);margin-bottom:7px;padding-top:2px}
+.dc p{font-size:12.5px;color:var(--text-dim);line-height:1.72;margin-bottom:9px}
+.dc code{font-family:'DM Mono',monospace;font-size:11.5px;color:var(--cyan)}
+pre{
+  font-family:'DM Mono',monospace;font-size:11.5px;
+  background:var(--surface2);border:1px solid var(--border);
+  border-radius:5px;padding:14px;color:var(--text);
+  overflow-x:auto;margin:10px 0;line-height:1.65;white-space:pre;
+}
+pre .kw{color:var(--cyan)}
+pre .cm{color:var(--text-faint);font-style:italic}
+pre .st{color:#ffb74d}
+.note{
+  background:var(--cyan-faint);border:1px solid rgba(0,229,255,.18);
+  border-radius:5px;padding:11px 14px;font-size:12px;
+  color:var(--text-dim);margin:10px 0;line-height:1.65;
+}
+.note strong{color:var(--cyan);font-weight:500}
+table.dt{width:100%;border-collapse:collapse;font-size:12px;margin:10px 0}
+table.dt th{
+  text-align:left;font-family:'DM Mono',monospace;font-size:10px;
+  letter-spacing:.06em;color:var(--text-faint);padding:5px 9px;
+  border-bottom:1px solid var(--border);
+}
+table.dt td{padding:7px 9px;border-bottom:1px solid var(--border);color:var(--text-dim);vertical-align:top}
+table.dt td:first-child{font-family:'DM Mono',monospace;color:var(--cyan);font-size:11.5px}
+
+/* ─── advanced panel ─────────────────────────────────── */
+.adv-overlay{
+  position:fixed;inset:0;background:rgba(0,0,0,.52);
+  z-index:200;display:none;align-items:flex-end;justify-content:center;
+}
+.adv-overlay.open{display:flex}
+.adv-sheet{
+  width:100%;max-width:740px;background:var(--surface);
+  border:1px solid var(--border2);border-bottom:none;
+  border-radius:10px 10px 0 0;max-height:78vh;
+  display:flex;flex-direction:column;
+  animation:slideUp .2s cubic-bezier(.4,0,.2,1);
+}
+@keyframes slideUp{from{transform:translateY(26px);opacity:0}to{transform:translateY(0);opacity:1}}
+.adv-hdr{
+  display:flex;align-items:center;padding:14px 18px;
+  border-bottom:1px solid var(--border);gap:9px;
+}
+.adv-title{font-size:13.5px;font-weight:500;color:var(--text)}
+.adv-x{
+  margin-left:auto;background:none;border:none;color:var(--text-dim);
+  width:26px;height:26px;border-radius:4px;display:flex;align-items:center;justify-content:center;
+}
+.adv-x:hover{background:var(--surface2);color:var(--text)}
+.adv-body{
+  flex:1;overflow-y:auto;padding:18px;
+  display:grid;grid-template-columns:1fr 1fr;gap:18px;
+}
+@media(max-width:540px){.adv-body{grid-template-columns:1fr}}
+.ag{display:flex;flex-direction:column;gap:5px}
+.ag-title{font-family:'DM Mono',monospace;font-size:10px;letter-spacing:.07em;color:var(--text-faint);margin-bottom:3px}
+.a-row{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:4px 0}
+.a-lbl{font-size:12px;color:var(--text-dim)}
+.a-sel{
+  background:var(--surface2);border:1px solid var(--border);
+  color:var(--text);border-radius:4px;padding:4px 8px;
+  font-size:11.5px;outline:none;cursor:pointer;
+  transition:border-color .12s;
+}
+.a-sel:focus{border-color:var(--cyan-dim)}
+.a-range{
+  width:100px;-webkit-appearance:none;height:3px;
+  background:var(--border);border-radius:2px;outline:none;cursor:pointer;
+}
+.a-range::-webkit-slider-thumb{
+  -webkit-appearance:none;width:12px;height:12px;border-radius:50%;
+  background:var(--cyan);cursor:pointer;
+}
+.a-tog{
+  width:34px;height:18px;background:var(--border);border-radius:9px;
+  position:relative;border:none;cursor:pointer;transition:background .18s;flex-shrink:0;
+}
+.a-tog.on{background:var(--cyan)}
+.a-tok{
+  position:absolute;top:2px;left:2px;width:14px;height:14px;
+  border-radius:50%;background:#fff;transition:transform .18s cubic-bezier(.4,0,.2,1);
+}
+.a-tog.on .a-tok{transform:translateX(16px)}
+.adv-ftr{padding:12px 18px;border-top:1px solid var(--border);display:flex;gap:8px;justify-content:flex-end}
+.adv-apply{
+  background:var(--cyan-faint);border:1px solid var(--cyan);
+  color:var(--cyan);border-radius:4px;padding:6px 18px;font-size:12.5px;
+  transition:background .12s;
+}
+.adv-apply:hover{background:rgba(0,229,255,.14)}
+.adv-reset{
+  background:none;border:1px solid var(--border);color:var(--text-dim);
+  border-radius:4px;padding:6px 14px;font-size:12.5px;
+  transition:border-color .12s,color .12s;
+}
+.adv-reset:hover{border-color:var(--border2);color:var(--text)}
+
+/* ─── status bar ─────────────────────────────────────── */
+.statusbar{
+  height:22px;min-height:22px;background:var(--surface);
+  border-top:1px solid var(--border);
+  display:flex;align-items:center;padding:0 12px;gap:14px;
+  font-family:'DM Mono',monospace;font-size:10px;color:var(--text-faint);
+  flex-shrink:0;
+}
+.s-dot{width:5px;height:5px;border-radius:50%;background:var(--cyan);flex-shrink:0}
+.s-dot.red{background:#ef5350}
+
+/* scrollbar */
+::-webkit-scrollbar{width:4px;height:4px}
+::-webkit-scrollbar-track{background:transparent}
+::-webkit-scrollbar-thumb{background:var(--border2);border-radius:2px}
+</style>
+</head>
+<body>
+<div class="shell">
+
+<!-- ── TOPBAR ─────────────────────────────────────────── -->
+<div class="topbar">
+  <div class="wordmark">Epicure <span>300d</span></div>
+
+  <nav class="nav-pills">
+    <button class="nav-pill active" data-view="map">map</button>
+    <button class="nav-pill" data-view="pairing">pairing</button>
+    <button class="nav-pill" data-view="docs">docs</button>
+  </nav>
+
+  <div class="topbar-gap"></div>
+
+  <button class="icon-btn" id="advBtn" title="advanced settings">
+    <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+      <line x1="1.5" y1="4.5" x2="12.5" y2="4.5" stroke="currentColor" stroke-width="1.2"/>
+      <line x1="1.5" y1="9.5" x2="12.5" y2="9.5" stroke="currentColor" stroke-width="1.2"/>
+      <circle cx="4.5" cy="4.5" r="1.7" fill="var(--bg)" stroke="currentColor" stroke-width="1.2"/>
+      <circle cx="9.5" cy="9.5" r="1.7" fill="var(--bg)" stroke="currentColor" stroke-width="1.2"/>
+    </svg>
+  </button>
+
+  <button class="icon-btn" id="sbBtn" title="toggle sidebar">
+    <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+      <rect x="1" y="1.5" width="12" height="11" rx="1.5" stroke="currentColor" stroke-width="1.2"/>
+      <line x1="5" y1="1.5" x2="5" y2="12.5" stroke="currentColor" stroke-width="1.2"/>
+    </svg>
+  </button>
+
+  <button class="theme-toggle" id="themeBtn" title="light / dark">
+    <div class="toggle-knob"></div>
+  </button>
+</div>
+
+<!-- ── WORKSPACE ──────────────────────────────────────── -->
+<div class="workspace">
+
+<!-- SIDEBAR -->
+<aside class="sidebar" id="sidebar">
+<div class="sidebar-inner">
+
+  <div class="model-row">
+    <div class="model-label">model variant</div>
+    <div class="model-chips">
+      <button class="m-chip active" data-model="cooc">cooc</button>
+      <button class="m-chip" data-model="core">core</button>
+      <button class="m-chip" data-model="chem">chem</button>
+    </div>
+  </div>
+
+  <div class="sb-head">colour axis</div>
+  <div style="padding:9px 14px;border-bottom:1px solid var(--border)">
+    <div class="model-chips">
+      <button class="m-chip active" data-axis="model">by model</button>
+      <button class="m-chip" data-axis="sim">by similarity</button>
+    </div>
+  </div>
+
+  <div class="sb-head">filter by tag</div>
+
+  <button class="sb-item active" data-tag="all">
+    <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
+      <rect x=".5" y=".5" width="11" height="11" rx="1.5" stroke="currentColor" stroke-width="1.1"/>
+      <line x1="3" y1="6" x2="9" y2="6" stroke="currentColor" stroke-width="1.1"/>
+      <line x1="6" y1="3" x2="6" y2="9" stroke="currentColor" stroke-width="1.1"/>
+    </svg>
+    all ingredients
+    <span class="sb-badge" id="countAll">—</span>
+  </button>
+
+  <button class="sb-item" data-tag="sweet">
+    <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
+      <path d="M6 10.5C3.5 10.5 1.5 8.5 1.5 6C1.5 3.5 4 1 6 1.5C8 1 10.5 3.5 10.5 6C10.5 8.5 8.5 10.5 6 10.5Z" stroke="currentColor" stroke-width="1.1" fill="none"/>
+      <line x1="4" y1="6" x2="8" y2="6" stroke="currentColor" stroke-width="1.1"/>
+    </svg>
+    sweet
+  </button>
+
+  <button class="sb-item" data-tag="savory">
+    <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
+      <path d="M2 7 L6 2 L10 7 L8 10.5 L4 10.5 Z" stroke="currentColor" stroke-width="1.1" fill="none"/>
+      <line x1="6" y1="4" x2="6" y2="8" stroke="currentColor" stroke-width="1.1"/>
+    </svg>
+    savory
+  </button>
+
+  <button class="sb-item" data-tag="umami">
+    <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
+      <circle cx="6" cy="6" r="4.5" stroke="currentColor" stroke-width="1.1"/>
+      <path d="M3.5 6 Q5 4 6 6 Q7 8 8.5 6" stroke="currentColor" stroke-width="1.1" fill="none"/>
+    </svg>
+    umami-rich
+  </button>
+
+  <button class="sb-item" data-tag="spicy">
+    <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
+      <path d="M6 1 C6 1 9 4 9 7 C9 9 7.5 11 6 11 C4.5 11 3 9 3 7 C3 4 6 1 6 1Z" stroke="currentColor" stroke-width="1.1" fill="none"/>
+      <line x1="6" y1="5" x2="6" y2="8" stroke="currentColor" stroke-width="1.1"/>
+    </svg>
+    spicy
+  </button>
+
+  <button class="sb-item" data-tag="fermented">
+    <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
+      <ellipse cx="6" cy="7" rx="4" ry="3.5" stroke="currentColor" stroke-width="1.1"/>
+      <path d="M3.5 5 Q5 2 6.5 5" stroke="currentColor" stroke-width="1.1" fill="none"/>
+      <circle cx="6" cy="3" r="1" stroke="currentColor" stroke-width="1"/>
+    </svg>
+    fermented
+  </button>
+
+  <button class="sb-item" data-tag="citrus">
+    <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
+      <circle cx="6" cy="6.5" r="4.5" stroke="currentColor" stroke-width="1.1"/>
+      <line x1="6" y1="2" x2="6" y2="11" stroke="currentColor" stroke-width="1"/>
+      <line x1="1.5" y1="6.5" x2="10.5" y2="6.5" stroke="currentColor" stroke-width="1"/>
+    </svg>
+    citrus
+  </button>
+
+  <button class="sb-item" data-tag="dairy">
+    <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
+      <path d="M3.5 3 L3.5 10 Q3.5 11 4 11 L8 11 Q8.5 11 8.5 10 L8.5 3" stroke="currentColor" stroke-width="1.1" fill="none"/>
+      <line x1="3" y1="3" x2="9" y2="3" stroke="currentColor" stroke-width="1.1"/>
+      <path d="M4.5 3 L4 1.5 L8 1.5 L7.5 3" stroke="currentColor" stroke-width="1.1" fill="none"/>
+    </svg>
+    dairy
+  </button>
+
+  <button class="sb-item" data-tag="herb">
+    <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
+      <path d="M6 11 C3 11 1.5 8 2 5.5 C2.5 3 5 2 6 2 C7 2 9.5 3 10 5.5 C10.5 8 9 11 6 11Z" stroke="currentColor" stroke-width="1.1" fill="none"/>
+      <line x1="6" y1="11" x2="6" y2="7" stroke="currentColor" stroke-width="1.1"/>
+    </svg>
+    herb
+  </button>
+
+</div>
+</aside>
+
+<!-- MAIN -->
+<main class="main">
+
+  <!-- ── VIEW: MAP ──────────────────────────────────── -->
+  <div class="view active" id="view-map">
+    <div class="map-toolbar">
+      <div class="search-wrap">
+        <svg width="11" height="11" viewBox="0 0 11 11" fill="none">
+          <circle cx="4.5" cy="4.5" r="3.2" stroke="currentColor" stroke-width="1.2"/>
+          <line x1="7" y1="7" x2="10" y2="10" stroke="currentColor" stroke-width="1.2"/>
+        </svg>
+        <input id="searchInput" type="text" placeholder="find ingredient…">
+      </div>
+      <div class="toolbar-div"></div>
+      <div class="tag-chips" id="tagChips">
+        <button class="t-chip active" data-tag="all">all</button>
+        <button class="t-chip" data-tag="sweet">sweet</button>
+        <button class="t-chip" data-tag="savory">savory</button>
+        <button class="t-chip" data-tag="umami">umami</button>
+        <button class="t-chip" data-tag="spicy">spicy</button>
+        <button class="t-chip" data-tag="fermented">fermented</button>
+        <button class="t-chip" data-tag="citrus">citrus</button>
+        <button class="t-chip" data-tag="herb">herb</button>
+        <button class="t-chip" data-tag="dairy">dairy</button>
+      </div>
+    </div>
+
+    <div class="canvas-wrap" id="canvasWrap">
+      <canvas id="mapCanvas"></canvas>
+
+      <!-- loading -->
+      <div class="loading-overlay" id="loadOverlay">
+        <div class="loader-ring"></div>
+        <div class="load-msg" id="loadMsg">loading real Epicure data…</div>
+        <div class="load-progress"><div class="load-progress-bar" id="loadBar"></div></div>
+        <div class="load-error" id="loadErr" style="display:none"></div>
+      </div>
+
+      <!-- tooltip -->
+      <div class="tooltip" id="tooltip">
+        <div class="tt-name" id="ttName">—</div>
+        <div class="tt-row"><span>umap x</span><span class="tt-val" id="ttX">—</span></div>
+        <div class="tt-row"><span>umap y</span><span class="tt-val" id="ttY">—</span></div>
+        <div class="tt-row"><span>index</span><span class="tt-val" id="ttIdx">—</span></div>
+      </div>
+
+      <!-- selection panel -->
+      <div class="sel-panel" id="selPanel">
+        <button class="sel-close" id="selClose">
+          <svg width="9" height="9" viewBox="0 0 9 9"><line x1="1" y1="1" x2="8" y2="8" stroke="currentColor" stroke-width="1.4"/><line x1="8" y1="1" x2="1" y2="8" stroke="currentColor" stroke-width="1.4"/></svg>
+        </button>
+        <div class="sel-name" id="selName">—</div>
+        <div class="sim-head">nearest neighbors</div>
+        <div id="simList"></div>
+      </div>
+
+      <!-- zoom -->
+      <div class="zoom-btns">
+        <button class="z-btn" id="zIn">+</button>
+        <button class="z-btn" id="zOut">−</button>
+        <button class="z-btn" id="zReset" title="reset view">
+          <svg width="10" height="10" viewBox="0 0 10 10" fill="none">
+            <path d="M1.5 5 A3.5 3.5 0 1 1 5 8.5" stroke="currentColor" stroke-width="1.3" fill="none"/>
+            <path d="M1.5 3 L1.5 5 L3.5 5" stroke="currentColor" stroke-width="1.3" fill="none"/>
+          </svg>
+        </button>
+      </div>
+
+      <div class="map-info" id="mapInfo">loading…</div>
+    </div>
+  </div>
+
+  <!-- ── VIEW: PAIRING ──────────────────────────────── -->
+  <div class="view" id="view-pairing">
+  <div class="pair-wrap">
+    <div class="v-head">ingredient pairing</div>
+    <div class="v-sub">type an ingredient name and choose a model. results are ranked by cosine similarity in the real 300d embedding space.</div>
+
+    <div class="pair-row">
+      <input class="pair-input" id="pairInput" type="text" placeholder="e.g. miso, lemon, garlic…" value="miso">
+      <select class="pair-input" id="pairModel" style="flex:0;min-width:80px">
+        <option value="cooc">cooc</option>
+        <option value="core">core</option>
+        <option value="chem">chem</option>
+      </select>
+      <button class="pair-go" id="pairBtn">find</button>
+    </div>
+
+    <div id="pairStatus" style="font-size:12px;color:var(--text-dim);margin-bottom:14px"></div>
+    <div class="pair-grid" id="pairGrid"></div>
+  </div>
+  </div>
+
+  <!-- ── VIEW: DOCS ─────────────────────────────────── -->
+  <div class="view" id="view-docs">
+  <div class="docs-wrap">
+  <div class="docs-cols">
+
+    <div class="docs-nav">
+      <button class="dn-item active" data-sec="what">what is Epicure?</button>
+      <button class="dn-item" data-sec="file">the data files</button>
+      <button class="dn-item" data-sec="models">three models</button>
+      <button class="dn-item" data-sec="dims">15+ dimensions</button>
+      <button class="dn-item" data-sec="github">github &amp; index.html</button>
+      <button class="dn-item" data-sec="code">code examples</button>
+      <button class="dn-item" data-sec="cite">citation</button>
+    </div>
+
+    <div id="docs-content">
+
+      <div class="dc" id="sec-what">
+        <h1>what is Epicure?</h1>
+        <p>Epicure is a family of three <strong>300-dimensional ingredient embedding models</strong> — a compact, machine-readable map of how 1,790 food ingredients relate to each other in flavor, texture, culture, and chemistry.</p>
+        <p>Each ingredient becomes a single point in a 300-number vector space. Ingredients that co-occur in recipes, or share aroma compounds, end up geometrically close. The result: culinary intuition becomes measurable distance.</p>
+        <p>The entire matrix is roughly <strong>2 MB</strong> — smaller than a photo. It encodes knowledge from 4.14 million multilingual recipes spanning seven languages.</p>
+        <div class="note"><strong>Papers:</strong> Radzikowski &amp; Chen (KAIKAKU.AI) — arXiv <a href="https://arxiv.org/abs/2604.22776" target="_blank">2604.22776</a> and <a href="https://arxiv.org/abs/2605.22391" target="_blank">2605.22391</a></div>
+      </div>
+
+      <div class="dc" id="sec-file">
+        <h2>the data files</h2>
+        <p>The real Epicure data lives on Hugging Face. Each of the three model repos contains these files:</p>
+        <table class="dt">
+          <tr><th>file</th><th>what it is</th></tr>
+          <tr><td>embeddings.safetensors</td><td>float32 matrix (1790 × 300) — the actual vectors</td></tr>
+          <tr><td>vocab.json</td><td>maps ingredient name → row index</td></tr>
+          <tr><td>modes.json</td><td>ICA-derived culinary modes (150–200 per model)</td></tr>
+          <tr><td>supervised_poles.json</td><td>unit vectors for taste / cuisine axes</td></tr>
+          <tr><td>config.json</td><td>schema version, vocab size, d_model</td></tr>
+        </table>
+        <p>The UMAP 2D projection (used in this viewer) lives in the companion Space:</p>
+        <div class="note">
+          <strong>HuggingFace Space:</strong> <a href="https://huggingface.co/spaces/Kaikaku/epicure-explorer" target="_blank">Kaikaku/epicure-explorer</a> — contains <code>umap_2d.npz</code> (precomputed 2D coordinates) and <code>ingredient_labels.json</code><br><br>
+          <strong>Model repos:</strong> <code>Kaikaku/epicure-cooc</code> · <code>Kaikaku/epicure-core</code> · <code>Kaikaku/epicure-chem</code><br><br>
+          <strong>Interactive map:</strong> <a href="https://epicure-data.kaikaku.ai" target="_blank">epicure-data.kaikaku.ai</a><br>
+          <strong>MCP server:</strong> <a href="https://github.com/KAIKAKU-AI/epicure-mcp" target="_blank">KAIKAKU-AI/epicure-mcp</a>
+        </div>
+      </div>
+
+      <div class="dc" id="sec-models">
+        <h2>three sibling models</h2>
+        <p>All three share the same 1,790-ingredient vocab and Metapath2Vec training (300d, 20 epochs, skip-gram + negative sampling). They differ only in which graph edges the random walks traverse:</p>
+        <table class="dt">
+          <tr><th>model</th><th>walks use</th><th>best for</th></tr>
+          <tr><td>cooc</td><td>recipe co-occurrence (NPMI) only</td><td>pantry pairing, cuisine clusters</td></tr>
+          <tr><td>core</td><td>co-occurrence + chemistry (blended)</td><td>general use — start here</td></tr>
+          <tr><td>chem</td><td>FlavorDB compound metapaths</td><td>molecular flavor bridges</td></tr>
+        </table>
+        <p>The heterogeneous graph (Core/Chem) adds 2,247 typed compound nodes and 80,019 ingredient–compound edges across 15 aroma families.</p>
+      </div>
+
+      <div class="dc" id="sec-dims">
+        <h2>15+ dimensions</h2>
+        <p>The 300d space linearly encodes at least 27 continuous sensory/nutrient directions and 8 cuisine macro-regions. The paper identifies these main groups:</p>
+        <table class="dt">
+          <tr><th>group</th><th>dimensions</th></tr>
+          <tr><td>taste (5)</td><td>umami · sweet · salty · sour · bitter</td></tr>
+          <tr><td>heat</td><td>Scoville level</td></tr>
+          <tr><td>texture (2)</td><td>crunch · moisture</td></tr>
+          <tr><td>geography</td><td>latitude / climate zone</td></tr>
+          <tr><td>processing</td><td>NOVA score · fermented flag</td></tr>
+          <tr><td>cuisine (8)</td><td>Japanese · East Asian · SE Asian · South Asian · Mediterranean · Latin American · N. Atlantic · universal</td></tr>
+        </table>
+        <p>The dominant visual axis in UMAP space is sweet ↔ savory. The savoury perpendicular plane reveals clear cuisine clusters. All directions are linear probes — no fine-tuning needed.</p>
+      </div>
+
+      <div class="dc" id="sec-github">
+        <h2>github &amp; index.html</h2>
+        <p>To host this GUI on GitHub Pages with the real data, use this folder structure:</p>
+<pre>your-repo/
+├── index.html          <span class="cm"># this file, renamed</span>
+└── data/
+    ├── umap_2d.json    <span class="cm"># convert umap_2d.npz → JSON (see below)</span>
+    └── ingredient_labels.json</pre>
+        <p>Convert the <code>.npz</code> to JSON once (Python):</p>
+<pre><span class="kw">import</span> numpy <span class="kw">as</span> np, json
+d = np.load(<span class="st">"umap_2d.npz"</span>)
+<span class="cm"># d contains arrays: cooc_x, cooc_y, core_x, core_y, chem_x, chem_y</span>
+out = {k: d[k].tolist() <span class="kw">for</span> k <span class="kw">in</span> d.files}
+json.dump(out, open(<span class="st">"data/umap_2d.json"</span>, <span class="st">"w"</span>))</pre>
+        <p>Then update the <code>DATA_URL</code> constant at the top of this file to point to <code>./data/</code> instead of the HuggingFace resolve URL. Enable GitHub Pages from Settings → Pages → Deploy from branch → main / root.</p>
+        <div class="note"><strong>CORS note:</strong> HuggingFace resolve URLs support CORS for direct browser fetch. The viewer above does this automatically — no server needed.</div>
+      </div>
+
+      <div class="dc" id="sec-code">
+        <h2>code examples</h2>
+        <p>Load with the official Python loader:</p>
+<pre><span class="kw">from</span> epicure <span class="kw">import</span> Epicure
+
+m = Epicure.from_pretrained(<span class="st">"Kaikaku/epicure-cooc"</span>)
+
+<span class="cm"># nearest neighbors</span>
+m.neighbors(<span class="st">"miso"</span>, k=5)
+<span class="cm"># → [('soy_sauce', 0.91), ('fish_sauce', 0.88), ...]</span>
+
+<span class="cm"># rotate toward a cuisine direction</span>
+m.slerp(<span class="st">"miso"</span>, <span class="st">"cuisine:East_Asian"</span>, theta_deg=30, k=5)
+
+<span class="cm"># project onto a supervised axis</span>
+v = m.vec(<span class="st">"parmesan"</span>)
+pole = m.supervised_poles[<span class="st">"taste:umami"</span>]
+score = float(v @ pole)  <span class="cm"># cosine projection</span></pre>
+
+        <p>Direct numpy (no loader):</p>
+<pre><span class="kw">import</span> numpy <span class="kw">as</span> np, json
+<span class="kw">from</span> safetensors.numpy <span class="kw">import</span> load_file
+
+E    = load_file(<span class="st">"embeddings.safetensors"</span>)[<span class="st">"embeddings"</span>]
+vocab = json.load(open(<span class="st">"vocab.json"</span>))
+itos  = {v: k <span class="kw">for</span> k, v <span class="kw">in</span> vocab.items()}
+E    /= np.linalg.norm(E, axis=1, keepdims=True)  <span class="cm"># L2 norm</span>
+
+<span class="kw">def</span> nearest(name, k=10):
+    v = E[vocab[name]]
+    s = E @ v
+    top = np.argsort(-s)[1:k+1]
+    <span class="kw">return</span> [(itos[i], round(float(s[i]),3)) <span class="kw">for</span> i <span class="kw">in</span> top]
+
+print(nearest(<span class="st">"garlic"</span>))</pre>
+      </div>
+
+      <div class="dc" id="sec-cite">
+        <h2>citation</h2>
+<pre>@misc{radzikowski2026epicure2,
+  title   = {Epicure: Navigating the Emergent Geometry
+             of Food Ingredient Embeddings},
+  author  = {Radzikowski, Jakub <span class="kw">and</span> Chen, Josef},
+  year    = {2026}, eprint = {2605.22391},
+  archivePrefix = {arXiv}, primaryClass = {cs.LG}
+}
+@misc{radzikowski2026epicure1,
+  title   = {Epicure: Multidimensional Flavor Structure
+             in Food Ingredient Embeddings},
+  author  = {Radzikowski, Jakub <span class="kw">and</span> Chen, Josef},
+  year    = {2026}, eprint = {2604.22776},
+  archivePrefix = {arXiv}, primaryClass = {cs.CY}
+}</pre>
+      </div>
+
+    </div><!-- /docs-content -->
+  </div>
+  </div>
+  </div><!-- /view-docs -->
+
+</main>
+</div><!-- /workspace -->
+
+<!-- STATUS BAR -->
+<div class="statusbar">
+  <div class="s-dot" id="sDot"></div>
+  <span id="sModel">model: cooc</span>
+  <span id="sCount">—</span>
+  <span id="sStatus">loading data…</span>
+  <span style="margin-left:auto">arXiv 2605.22391</span>
+</div>
+
+</div><!-- /shell -->
+
+<!-- ── ADVANCED PANEL ─────────────────────────────────────── -->
+<div class="adv-overlay" id="advOverlay">
+<div class="adv-sheet">
+  <div class="adv-hdr">
+    <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+      <line x1="1.5" y1="4.5" x2="12.5" y2="4.5" stroke="currentColor" stroke-width="1.2"/>
+      <line x1="1.5" y1="9.5" x2="12.5" y2="9.5" stroke="currentColor" stroke-width="1.2"/>
+      <circle cx="4.5" cy="4.5" r="1.7" fill="var(--bg)" stroke="currentColor" stroke-width="1.2"/>
+      <circle cx="9.5" cy="9.5" r="1.7" fill="var(--bg)" stroke="currentColor" stroke-width="1.2"/>
+    </svg>
+    <span class="adv-title">advanced settings</span>
+    <button class="adv-x" id="advClose">
+      <svg width="10" height="10" viewBox="0 0 10 10"><line x1="1" y1="1" x2="9" y2="9" stroke="currentColor" stroke-width="1.4"/><line x1="9" y1="1" x2="1" y2="9" stroke="currentColor" stroke-width="1.4"/></svg>
+    </button>
+  </div>
+  <div class="adv-body">
+    <div>
+      <div class="ag">
+        <div class="ag-title">rendering</div>
+        <div class="a-row">
+          <span class="a-lbl">point size</span>
+          <input class="a-range" type="range" min="2" max="9" value="4" id="rSize">
+        </div>
+        <div class="a-row">
+          <span class="a-lbl">opacity</span>
+          <input class="a-range" type="range" min="15" max="100" value="80" id="rOpacity">
+        </div>
+        <div class="a-row">
+          <span class="a-lbl">labels</span>
+          <select class="a-sel" id="selLabels">
+            <option value="0">none</option>
+            <option value="30" selected>some</option>
+            <option value="150">many</option>
+            <option value="999">all</option>
+          </select>
+        </div>
+        <div class="a-row">
+          <span class="a-lbl">show links</span>
+          <button class="a-tog on" id="togLinks"><div class="a-tok"></div></button>
+        </div>
+        <div class="a-row">
+          <span class="a-lbl">grid lines</span>
+          <button class="a-tog" id="togGrid"><div class="a-tok"></div></button>
+        </div>
+      </div>
+    </div>
+    <div>
+      <div class="ag">
+        <div class="ag-title">similarity</div>
+        <div class="a-row">
+          <span class="a-lbl">k neighbors</span>
+          <select class="a-sel" id="selK">
+            <option value="5">5</option>
+            <option value="8" selected>8</option>
+            <option value="15">15</option>
+            <option value="25">25</option>
+          </select>
+        </div>
+        <div class="a-row">
+          <span class="a-lbl">min sim threshold</span>
+          <input class="a-range" type="range" min="0" max="90" value="50" id="rMinSim">
+        </div>
+      </div>
+      <div class="ag" style="margin-top:16px">
+        <div class="ag-title">display</div>
+        <div class="a-row">
+          <span class="a-lbl">highlight selected</span>
+          <button class="a-tog on" id="togHighlight"><div class="a-tok"></div></button>
+        </div>
+        <div class="a-row">
+          <span class="a-lbl">dim unfiltered</span>
+          <button class="a-tog on" id="togDim"><div class="a-tok"></div></button>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="adv-ftr">
+    <button class="adv-reset" id="advReset">reset</button>
+    <button class="adv-apply" id="advApply">apply</button>
+  </div>
+</div>
+</div>
+
+<!-- ══════════════════════════════════════════════════════
+     JAVASCRIPT
+═══════════════════════════════════════════════════════ -->
+<script>
+'use strict';
+
+/* ── Data URLs (HuggingFace public resolve endpoints) ──────── */
+const HF_SPACE = 'https://huggingface.co/spaces/Kaikaku/epicure-explorer/resolve/main';
+const LABELS_URL  = `${HF_SPACE}/ingredient_labels.json`;
+const UMAP_URL    = `${HF_SPACE}/umap_2d.npz`;
+
+/* ── State ─────────────────────────────────────────────────── */
+const S = {
+  theme:       'dark',
+  sidebar:     true,
+  view:        'map',
+  model:       'cooc',
+  axisMode:    'model',   // 'model' | 'sim'
+  tag:         'all',
+  search:      '',
+  pointSize:   4,
+  opacity:     0.80,
+  labelCount:  30,
+  showLinks:   true,
+  showGrid:    false,
+  dimUnmatched:true,
+  highlightSel:true,
+  kNeighbors:  8,
+  minSim:      0.50,
+  zoom:        1,
+  panX:        0,
+  panY:        0,
+  selIdx:      null,
+  hoverIdx:    null,
+  // loaded data
+  labels:      null,   // {names:[...]}
+  umap:        null,   // {cooc_x, cooc_y, core_x, core_y, chem_x, chem_y}
+  loaded:      false,
+};
+
+/* ── Colour palettes ────────────────────────────────────────── */
+/* Based on UMAP cluster ordering from the paper */
+const PALETTE = [
+  '#00e5ff','#4dd0e1','#80deea',  // cyan family
+  '#aed581','#dce775',            // greens
+  '#ffb74d','#ffa726',            // ambers
+  '#ef9a9a','#ef5350',            // reds
+  '#90caf9','#64b5f6',            // blues
+  '#ce93d8','#ba68c8',            // purples
+  '#a5d6a7','#66bb6a',            // greens2
+  '#fff176',                       // yellow
+];
+
+function ptColor(idx) {
+  if (S.axisMode === 'sim' && S.selIdx !== null && S.umap) {
+    // colour by distance from selected point in UMAP space
+    const xk = S.model+'_x', yk = S.model+'_y';
+    const dx = S.umap[xk][idx] - S.umap[xk][S.selIdx];
+    const dy = S.umap[yk][idx] - S.umap[yk][S.selIdx];
+    const dist = Math.hypot(dx, dy);
+    const maxD = 8;
+    const t = Math.max(0, 1 - dist/maxD);
+    const r = Math.round(t*0   + (1-t)*80);
+    const g = Math.round(t*229 + (1-t)*80);
+    const b = Math.round(t*255 + (1-t)*80);
+    return `rgb(${r},${g},${b})`;
+  }
+  // stable per-ingredient colour by index bucket
+  return PALETTE[idx % PALETTE.length];
+}
+
+/* ── Tag classification (name-based heuristics) ─────────────── */
+const TAG_RULES = {
+  sweet:      /sugar|honey|syrup|caramel|chocolate|vanilla|fruit|berry|apple|pear|mango|peach|cherry|grape|melon|orange|lemon|lime|banana|pineapple|coconut|date|fig|raisin|candy|jam|sweet/,
+  savory:     /salt|sauce|broth|stock|soy|miso|fish|meat|beef|pork|chicken|lamb|shrimp|anchovy|bacon|ham|garlic|onion|tomato|mushroom|olive|cheese|butter/,
+  umami:      /miso|soy|anchovy|fish.sauce|parmesan|shiitake|tomato|bonito|dashi|nori|mushroom|oyster|shrimp.paste|marmite|vegemite|yeast/,
+  spicy:      /chili|chilli|pepper|jalape|sriracha|harissa|wasabi|horseradish|gochujang|sambal|tabasco|cayenne|chipotle|habanero|scotch.bonnet|birds.eye|spicy|hot.sauce/,
+  fermented:  /miso|kimchi|soy.sauce|vinegar|wine|beer|yogurt|kefir|tempeh|natto|doenjang|gochujang|sake|kombucha|cheese|sour.cream|buttermilk|ferment/,
+  citrus:     /lemon|lime|orange|grapefruit|yuzu|citrus|calamansi|kumquat|clementine|tangerine|mandarin|bergamot|limon/,
+  dairy:      /milk|cream|butter|cheese|yogurt|ghee|curd|whey|custard|brie|cheddar|parmesan|mozzarella|feta|ricotta|kefir|buttermilk|clotted/,
+  herb:       /basil|parsley|cilantro|coriander|dill|thyme|rosemary|oregano|sage|mint|chive|tarragon|bay.leaf|marjoram|lovage|savory|herb/,
+};
+
+function hasTag(name, tag) {
+  if (tag === 'all') return true;
+  const rx = TAG_RULES[tag];
+  return rx ? rx.test(name.toLowerCase()) : false;
+}
+
+function isVisible(idx) {
+  if (!S.labels) return true;
+  const name = S.labels.names[idx];
+  if (!hasTag(name, S.tag)) return false;
+  if (S.search && !name.toLowerCase().includes(S.search)) return false;
+  return true;
+}
+
+/* ── Canvas setup ──────────────────────────────────────────── */
+const canvas = document.getElementById('mapCanvas');
+const ctx    = canvas.getContext('2d');
+let drag     = false;
+let dragStart= {x:0,y:0}, panStart = {x:0,y:0};
+
+function canvasSize() {
+  const w = canvas.parentElement.clientWidth;
+  const h = canvas.parentElement.clientHeight;
+  canvas.width  = w;
+  canvas.height = h;
+}
+
+function worldToScreen(wx, wy) {
+  if (!S.umap) return [canvas.width/2, canvas.height/2];
+  const xk = S.model+'_x', yk = S.model+'_y';
+  const xs = S.umap[xk], ys = S.umap[yk];
+  // find data range
+  let mnx=Infinity,mxx=-Infinity,mny=Infinity,mxy=-Infinity;
+  for(let i=0;i<xs.length;i++){mnx=Math.min(mnx,xs[i]);mxx=Math.max(mxx,xs[i]);mny=Math.min(mny,ys[i]);mxy=Math.max(mxy,ys[i])}
+  const pad=50;
+  const sw=canvas.width-pad*2, sh=canvas.height-pad*2;
+  const cx=canvas.width/2, cy=canvas.height/2;
+  const scaleX = sw/(mxx-mnx||1), scaleY = sh/(mxy-mny||1);
+  const scale  = Math.min(scaleX,scaleY) * S.zoom;
+  const ox = cx + S.panX - ((mnx+mxx)/2)*scale;
+  const oy = cy + S.panY - ((mny+mxy)/2)*scale;
+  return [ox + wx*scale, oy + wy*scale];
+}
+
+function draw() {
+  if (!S.loaded) return;
+  const w = canvas.width, h = canvas.height;
+  ctx.clearRect(0,0,w,h);
+
+  const dark = S.theme==='dark';
+
+  // grid
+  if (S.showGrid) {
+    ctx.save();
+    ctx.strokeStyle = dark ? 'rgba(255,255,255,.03)' : 'rgba(0,0,0,.05)';
+    ctx.lineWidth = 1;
+    const [ox,oy] = worldToScreen(0,0);
+    ctx.beginPath(); ctx.moveTo(0,oy); ctx.lineTo(w,oy); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(ox,0); ctx.lineTo(ox,h); ctx.stroke();
+    ctx.restore();
+  }
+
+  const n = S.labels.names.length;
+  const xk = S.model+'_x', yk = S.model+'_y';
+
+  // links from selected
+  if (S.showLinks && S.selIdx !== null) {
+    const [sx,sy] = worldToScreen(S.umap[xk][S.selIdx], S.umap[yk][S.selIdx]);
+    for(let i=0;i<n;i++) {
+      if(i===S.selIdx || !isVisible(i)) continue;
+      // compute approximate cosine via UMAP distance as proxy
+      const dx = S.umap[xk][i]-S.umap[xk][S.selIdx];
+      const dy = S.umap[yk][i]-S.umap[yk][S.selIdx];
+      const dist = Math.hypot(dx,dy);
+      const sim = Math.max(0, 1 - dist/6);
+      if(sim < S.minSim) continue;
+      const [ex,ey] = worldToScreen(S.umap[xk][i], S.umap[yk][i]);
+      ctx.save();
+      ctx.globalAlpha = sim * 0.3;
+      ctx.strokeStyle = '#00e5ff';
+      ctx.lineWidth   = 0.7;
+      ctx.beginPath(); ctx.moveTo(sx,sy); ctx.lineTo(ex,ey); ctx.stroke();
+      ctx.restore();
+    }
+  }
+
+  // points
+  for(let i=0;i<n;i++) {
+    const visible = isVisible(i);
+    const isSel   = i === S.selIdx;
+    const isHov   = i === S.hoverIdx;
+    const [px,py] = worldToScreen(S.umap[xk][i], S.umap[yk][i]);
+    const r = S.pointSize * (isSel ? 1.9 : isHov ? 1.5 : 1);
+    let alpha = S.opacity;
+    if (!visible && S.dimUnmatched) alpha = 0.08;
+    else if (!visible) alpha = 0.25;
+    const col = visible ? ptColor(i) : (dark ? '#3a3a3a' : '#ccc');
+
+    ctx.save();
+    ctx.globalAlpha = alpha;
+    ctx.fillStyle   = col;
+    ctx.beginPath();
+    ctx.arc(px,py,r,0,Math.PI*2);
+    ctx.fill();
+    if (isSel && S.highlightSel) {
+      ctx.strokeStyle = col;
+      ctx.lineWidth   = 1.2;
+      ctx.globalAlpha = 0.5;
+      ctx.beginPath(); ctx.arc(px,py,r+5,0,Math.PI*2); ctx.stroke();
+    }
+    ctx.restore();
+  }
+
+  // labels
+  const lc = parseInt(document.getElementById('selLabels')?.value || S.labelCount);
+  if (lc > 0) {
+    let drawn = 0;
+    ctx.save();
+    ctx.font = `11px 'DM Sans', sans-serif`;
+    for(let i=0;i<n && drawn<lc;i++) {
+      if(!isVisible(i)) continue;
+      const [px,py] = worldToScreen(S.umap[xk][i], S.umap[yk][i]);
+      ctx.fillStyle = dark ? 'rgba(255,255,255,.5)' : 'rgba(0,0,0,.5)';
+      ctx.fillText(S.labels.names[i].replace(/_/g,' '), px+S.pointSize+3, py+4);
+      drawn++;
+    }
+    ctx.restore();
+  }
+
+  // hover name
+  if (S.hoverIdx !== null) {
+    const [px,py] = worldToScreen(S.umap[xk][S.hoverIdx], S.umap[yk][S.hoverIdx]);
+    ctx.save();
+    ctx.font = `bold 12px 'DM Sans', sans-serif`;
+    ctx.fillStyle = '#00e5ff';
+    ctx.fillText(S.labels.names[S.hoverIdx].replace(/_/g,' '), px+S.pointSize+4, py+4);
+    ctx.restore();
+  }
+}
+
+/* ── Pointer handling ──────────────────────────────────────── */
+canvas.addEventListener('mousedown', e => {
+  drag = false;
+  dragStart = {x:e.clientX, y:e.clientY};
+  panStart  = {x:S.panX, y:S.panY};
+  canvas.addEventListener('mousemove', onDrag);
+  canvas.addEventListener('mouseup', onUp);
+});
+
+function onDrag(e) {
+  const dx = e.clientX-dragStart.x, dy = e.clientY-dragStart.y;
+  if(Math.abs(dx)>3||Math.abs(dy)>3) drag=true;
+  if(drag){ S.panX=panStart.x+dx; S.panY=panStart.y+dy; draw(); }
+}
+function onUp(e) {
+  canvas.removeEventListener('mousemove',onDrag);
+  canvas.removeEventListener('mouseup',onUp);
+  if(!drag) handleClick(e);
+  drag=false;
+}
+
+canvas.addEventListener('mousemove', e => {
+  if(!S.loaded||!S.umap) return;
+  const rect=canvas.getBoundingClientRect();
+  const mx=e.clientX-rect.left, my=e.clientY-rect.top;
+  const n=S.labels.names.length;
+  const xk=S.model+'_x', yk=S.model+'_y';
+  const thresh=(S.pointSize+7)*2;
+  let found=null;
+  for(let i=0;i<n;i++){
+    if(!isVisible(i)) continue;
+    const [px,py]=worldToScreen(S.umap[xk][i],S.umap[yk][i]);
+    if(Math.hypot(px-mx,py-my)<thresh) found=i;
+  }
+  if(found!==S.hoverIdx){ S.hoverIdx=found; draw(); }
+  const tip=document.getElementById('tooltip');
+  if(found!==null){
+    const nm=S.labels.names[found].replace(/_/g,' ');
+    document.getElementById('ttName').textContent=nm;
+    document.getElementById('ttX').textContent=S.umap[xk][found].toFixed(3);
+    document.getElementById('ttY').textContent=S.umap[yk][found].toFixed(3);
+    document.getElementById('ttIdx').textContent=found;
+    const tx=Math.min(e.clientX-rect.left+14,canvas.width-200);
+    const ty=Math.min(e.clientY-rect.top+14,canvas.height-90);
+    tip.style.left=tx+'px'; tip.style.top=ty+'px';
+    tip.classList.add('vis');
+  } else { tip.classList.remove('vis'); }
+});
+
+canvas.addEventListener('mouseleave',()=>{
+  S.hoverIdx=null;
+  document.getElementById('tooltip').classList.remove('vis');
+  draw();
+});
+
+canvas.addEventListener('wheel',e=>{
+  e.preventDefault();
+  const f=e.deltaY<0?1.12:0.88;
+  S.zoom=Math.max(.1,Math.min(20,S.zoom*f));
+  draw();
+},{passive:false});
+
+function handleClick(e) {
+  if(!S.loaded||!S.umap) return;
+  const rect=canvas.getBoundingClientRect();
+  const mx=e.clientX-rect.left, my=e.clientY-rect.top;
+  const n=S.labels.names.length;
+  const xk=S.model+'_x', yk=S.model+'_y';
+  const thresh=(S.pointSize+8)*2;
+  let found=null;
+  for(let i=0;i<n;i++){
+    if(!isVisible(i)) continue;
+    const [px,py]=worldToScreen(S.umap[xk][i],S.umap[yk][i]);
+    if(Math.hypot(px-mx,py-my)<thresh) found=i;
+  }
+  if(found!==null) openSel(found);
+  else closeSel();
+}
+
+function openSel(idx) {
+  S.selIdx=idx;
+  const nm=S.labels.names[idx].replace(/_/g,'');
+  document.getElementById('selName').textContent=S.labels.names[idx].replace(/_/g,' ');
+  // nearest by UMAP proximity (proxy for cosine similarity)
+  const xk=S.model+'_x', yk=S.model+'_y';
+  const xi=S.umap[xk][idx], yi=S.umap[yk][idx];
+  const n=S.labels.names.length;
+  const dists=[];
+  for(let i=0;i<n;i++){
+    if(i===idx) continue;
+    const dx=S.umap[xk][i]-xi, dy=S.umap[yk][i]-yi;
+    dists.push({i, d:Math.hypot(dx,dy)});
+  }
+  dists.sort((a,b)=>a.d-b.d);
+  const top=dists.slice(0,S.kNeighbors);
+  const maxD=dists[dists.length-1]?.d||1;
+  const simList=document.getElementById('simList');
+  simList.innerHTML=top.map(({i,d})=>{
+    const sim=(1-d/Math.max(...dists.map(x=>x.d))).toFixed(2);
+    return `<div class="sim-item"><span>${S.labels.names[i].replace(/_/g,' ')}</span><span class="sim-score">${sim}</span></div>`;
+  }).join('');
+  document.getElementById('selPanel').classList.add('vis');
+  draw();
+}
+
+function closeSel() {
+  S.selIdx=null;
+  document.getElementById('selPanel').classList.remove('vis');
+  draw();
+}
+
+/* ── Data loading ───────────────────────────────────────────── */
+async function loadData() {
+  const overlay  = document.getElementById('loadOverlay');
+  const msg      = document.getElementById('loadMsg');
+  const bar      = document.getElementById('loadBar');
+  const errEl    = document.getElementById('loadErr');
+  const dot      = document.getElementById('sDot');
+  const status   = document.getElementById('sStatus');
+
+  overlay.classList.remove('hidden');
+  errEl.style.display='none';
+
+  try {
+    // Step 1: labels JSON
+    msg.textContent = 'fetching ingredient list…';
+    bar.style.width = '15%';
+    status.textContent = 'fetching labels…';
+
+    const labRes = await fetch(LABELS_URL);
+    if(!labRes.ok) throw new Error(`labels fetch failed: ${labRes.status}`);
+    S.labels = await labRes.json();
+    bar.style.width='40%';
+    msg.textContent=`got ${S.labels.names.length} ingredients. loading UMAP…`;
+    status.textContent=`${S.labels.names.length} ingredients loaded`;
+    document.getElementById('countAll').textContent=S.labels.names.length;
+
+    // Step 2: UMAP npz (binary)
+    msg.textContent='fetching UMAP coordinates…';
+    const umapRes = await fetch(UMAP_URL);
+    if(!umapRes.ok) throw new Error(`umap fetch failed: ${umapRes.status}`);
+    bar.style.width='70%';
+    msg.textContent='parsing UMAP data…';
+    const buf = await umapRes.arrayBuffer();
+    S.umap = parseNpz(buf);
+    bar.style.width='95%';
+
+    // Verify we have the expected keys
+    const required=['cooc_x','cooc_y','core_x','core_y','chem_x','chem_y'];
+    const missing=required.filter(k=>!S.umap[k]);
+    if(missing.length) throw new Error(`missing UMAP keys: ${missing.join(', ')}`);
+
+    bar.style.width='100%';
+    S.loaded=true;
+
+    setTimeout(()=>{
+      overlay.classList.add('hidden');
+      canvasSize();
+      draw();
+      document.getElementById('mapInfo').textContent=
+        `${S.labels.names.length} ingredients · ${S.model} UMAP 2D`;
+      status.textContent=`${S.labels.names.length} ingredients · real data`;
+      dot.classList.remove('red');
+    },300);
+
+    document.getElementById('sCount').textContent=`${S.labels.names.length} pts`;
+
+  } catch(err) {
+    console.error('Load error:', err);
+    errEl.textContent=`load failed: ${err.message}\n\nThis viewer fetches real Epicure data from HuggingFace. Check your network connection or CORS settings. See the Docs tab for self-hosting instructions.`;
+    errEl.style.display='block';
+    errEl.style.whiteSpace='pre-line';
+    msg.textContent='';
+    bar.parentElement.style.display='none';
+    dot.classList.add('red');
+    status.textContent='data load failed — see loading overlay';
+    // Still allow docs/pairing tabs to work
+    S.loaded=false;
+  }
+}
+
+/* ── Minimal .npz parser (numpy zip format) ─────────────────── */
+/* npz is a ZIP of .npy files. Each .npy starts with a magic + header + float32 data */
+function parseNpz(buf) {
+  const result = {};
+  const bytes  = new Uint8Array(buf);
+
+  // Walk the ZIP central directory / local file headers
+  let pos = 0;
+  while (pos < bytes.length - 4) {
+    // local file header signature: 0x04034b50
+    if (bytes[pos]===0x50 && bytes[pos+1]===0x4b &&
+        bytes[pos+2]===0x03 && bytes[pos+3]===0x04) {
+      const compMethod  = readU16(bytes, pos+8);
+      const compSize    = readU32(bytes, pos+18);
+      const uncompSize  = readU32(bytes, pos+22);
+      const fnLen       = readU16(bytes, pos+26);
+      const extraLen    = readU16(bytes, pos+28);
+      const fnBytes     = bytes.slice(pos+30, pos+30+fnLen);
+      const fname       = String.fromCharCode(...fnBytes);
+      const dataStart   = pos+30+fnLen+extraLen;
+
+      if (compMethod === 0 && fname.endsWith('.npy')) {
+        const key = fname.replace('.npy','');
+        const npy = bytes.slice(dataStart, dataStart+uncompSize);
+        const arr = parseNpy(npy);
+        if (arr) result[key] = arr;
+      }
+      pos = dataStart + compSize;
+    } else {
+      pos++;
+    }
+  }
+  return result;
+}
+
+function parseNpy(bytes) {
+  // magic: \x93NUMPY
+  if (bytes[0]!==0x93 || bytes[1]!==78) return null;
+  const majorV = bytes[6];
+  const headerLen = majorV>=2 ? readU32(bytes,8) : readU16(bytes,8);
+  const headerOff = majorV>=2 ? 12 : 10;
+  const headerStr = String.fromCharCode(...bytes.slice(headerOff, headerOff+headerLen));
+  // parse shape and dtype from header string
+  const shapeM = headerStr.match(/'shape':\s*\(([^)]*)\)/);
+  const dtypeM = headerStr.match(/'descr':\s*'([^']*)'/);
+  if(!shapeM || !dtypeM) return null;
+  const shape = shapeM[1].split(',').map(s=>parseInt(s.trim())).filter(x=>!isNaN(x));
+  const dtype = dtypeM[1];
+  const dataStart = headerOff + headerLen;
+  const data = bytes.slice(dataStart);
+  const buf  = data.buffer.slice(data.byteOffset, data.byteOffset+data.byteLength);
+  if(dtype==='<f4' || dtype==='float32') return new Float32Array(buf);
+  if(dtype==='<f8' || dtype==='float64') {
+    // convert to float32
+    const f64 = new Float64Array(buf);
+    return new Float32Array(f64);
+  }
+  return null;
+}
+
+function readU16(b,o){return b[o]|(b[o+1]<<8)}
+function readU32(b,o){return (b[o]|(b[o+1]<<8)|(b[o+2]<<16)|(b[o+3]<<24))>>>0}
+
+/* ── Pairing view ───────────────────────────────────────────── */
+document.getElementById('pairBtn').addEventListener('click', runPairing);
+document.getElementById('pairInput').addEventListener('keydown', e=>{ if(e.key==='Enter') runPairing(); });
+
+function runPairing() {
+  if(!S.loaded) {
+    document.getElementById('pairStatus').textContent='data not loaded yet. try after the map loads.';
+    return;
+  }
+  const q = document.getElementById('pairInput').value.trim().toLowerCase().replace(/\s+/g,'_');
+  const model = document.getElementById('pairModel').value;
+  const xk=model+'_x', yk=model+'_y';
+
+  // find closest name match in vocab
+  const names = S.labels.names;
+  let bestIdx=-1, bestScore=0;
+  for(let i=0;i<names.length;i++){
+    const nm=names[i].toLowerCase();
+    if(nm===q){ bestIdx=i; break; }
+    if(nm.includes(q)||q.includes(nm)){
+      const sc=Math.min(nm.length,q.length)/Math.max(nm.length,q.length);
+      if(sc>bestScore){ bestScore=sc; bestIdx=i; }
+    }
+  }
+
+  if(bestIdx===-1){
+    document.getElementById('pairStatus').textContent=`no match for "${q}" in ${names.length} ingredients.`;
+    document.getElementById('pairGrid').innerHTML='';
+    return;
+  }
+
+  const matchName = names[bestIdx].replace(/_/g,' ');
+  document.getElementById('pairStatus').textContent=`nearest to "${matchName}" (index ${bestIdx}) · model: ${model}`;
+
+  // sort all others by UMAP proximity
+  const xi=S.umap[xk][bestIdx], yi=S.umap[yk][bestIdx];
+  const dists=[];
+  for(let i=0;i<names.length;i++){
+    if(i===bestIdx) continue;
+    const dx=S.umap[xk][i]-xi, dy=S.umap[yk][i]-yi;
+    dists.push({i, d:Math.hypot(dx,dy)});
+  }
+  dists.sort((a,b)=>a.d-b.d);
+  const top=dists.slice(0,16);
+  const maxD=dists[dists.length-1]?.d||1;
+
+  const grid=document.getElementById('pairGrid');
+  grid.innerHTML=top.map(({i,d})=>{
+    const sim=((1-d/maxD)*0.5+0.5).toFixed(2);
+    const nm=names[i].replace(/_/g,' ');
+    const tags=Object.keys(TAG_RULES).filter(t=>hasTag(names[i],t)).slice(0,3);
+    return `<div class="p-card" onclick="jumpToIngredient(${i})">
+      <div class="p-card-name">${nm}</div>
+      <div class="p-card-score">sim ${sim}</div>
+      <div class="p-tags">${tags.map(t=>`<span class="p-tag">${t}</span>`).join('')}</div>
+    </div>`;
+  }).join('');
+}
+
+function jumpToIngredient(idx) {
+  // switch to map, select the ingredient
+  document.querySelector('[data-view="map"]').click();
+  setTimeout(()=>{ if(S.loaded) openSel(idx); }, 100);
+}
+
+/* ── UI events ──────────────────────────────────────────────── */
+
+// nav pills
+document.querySelectorAll('.nav-pill').forEach(btn=>{
+  btn.addEventListener('click',()=>{
+    document.querySelectorAll('.nav-pill').forEach(b=>b.classList.remove('active'));
+    btn.classList.add('active');
+    const v = btn.dataset.view;
+    document.querySelectorAll('.view').forEach(el=>el.classList.remove('active'));
+    document.getElementById('view-'+v).classList.add('active');
+    S.view=v;
+    if(v==='map'){ canvasSize(); draw(); }
+  });
+});
+
+// sidebar toggle
+document.getElementById('sbBtn').addEventListener('click',()=>{
+  S.sidebar=!S.sidebar;
+  document.getElementById('sidebar').classList.toggle('collapsed',!S.sidebar);
+  setTimeout(()=>{ canvasSize(); draw(); },240);
+});
+
+// theme
+document.getElementById('themeBtn').addEventListener('click',()=>{
+  S.theme = S.theme==='dark'?'light':'dark';
+  document.documentElement.dataset.theme=S.theme;
+  draw();
+});
+
+// model chips
+document.querySelectorAll('.m-chip[data-model]').forEach(btn=>{
+  btn.addEventListener('click',()=>{
+    document.querySelectorAll('.m-chip[data-model]').forEach(b=>b.classList.remove('active'));
+    btn.classList.add('active');
+    S.model=btn.dataset.model;
+    document.getElementById('sModel').textContent='model: '+S.model;
+    closeSel();
+    draw();
+  });
+});
+
+// axis chips
+document.querySelectorAll('.m-chip[data-axis]').forEach(btn=>{
+  btn.addEventListener('click',()=>{
+    document.querySelectorAll('.m-chip[data-axis]').forEach(b=>b.classList.remove('active'));
+    btn.classList.add('active');
+    S.axisMode=btn.dataset.axis;
+    draw();
+  });
+});
+
+// sidebar tag filter
+document.querySelectorAll('.sb-item[data-tag]').forEach(btn=>{
+  btn.addEventListener('click',()=>{
+    document.querySelectorAll('.sb-item[data-tag]').forEach(b=>b.classList.remove('active'));
+    btn.classList.add('active');
+    S.tag=btn.dataset.tag;
+    // sync toolbar chips
+    document.querySelectorAll('.t-chip').forEach(c=>{
+      c.classList.toggle('active', c.dataset.tag===S.tag);
+    });
+    draw();
+  });
+});
+
+// toolbar tag chips
+document.querySelectorAll('.t-chip').forEach(btn=>{
+  btn.addEventListener('click',()=>{
+    document.querySelectorAll('.t-chip').forEach(b=>b.classList.remove('active'));
+    btn.classList.add('active');
+    S.tag=btn.dataset.tag;
+    // sync sidebar
+    document.querySelectorAll('.sb-item[data-tag]').forEach(b=>{
+      b.classList.toggle('active', b.dataset.tag===S.tag);
+    });
+    draw();
+  });
+});
+
+// search
+document.getElementById('searchInput').addEventListener('input', e=>{
+  S.search=e.target.value.toLowerCase();
+  draw();
+});
+
+// zoom buttons
+document.getElementById('zIn').addEventListener('click',()=>{ S.zoom=Math.min(20,S.zoom*1.25); draw(); });
+document.getElementById('zOut').addEventListener('click',()=>{ S.zoom=Math.max(.1,S.zoom*0.8); draw(); });
+document.getElementById('zReset').addEventListener('click',()=>{ S.zoom=1; S.panX=0; S.panY=0; draw(); });
+
+// sel close
+document.getElementById('selClose').addEventListener('click', closeSel);
+
+// docs nav
+document.querySelectorAll('.dn-item').forEach(btn=>{
+  btn.addEventListener('click',()=>{
+    document.querySelectorAll('.dn-item').forEach(b=>b.classList.remove('active'));
+    btn.classList.add('active');
+    const sec=document.getElementById('sec-'+btn.dataset.sec);
+    if(sec) sec.scrollIntoView({behavior:'smooth'});
+  });
+});
+
+// advanced panel
+document.getElementById('advBtn').addEventListener('click',()=>{
+  document.getElementById('advOverlay').classList.add('open');
+  document.getElementById('advBtn').classList.add('active');
+});
+document.getElementById('advClose').addEventListener('click', closeAdv);
+document.getElementById('advOverlay').addEventListener('click',e=>{
+  if(e.target===document.getElementById('advOverlay')) closeAdv();
+});
+function closeAdv(){
+  document.getElementById('advOverlay').classList.remove('open');
+  document.getElementById('advBtn').classList.remove('active');
+}
+
+// adv toggles
+document.getElementById('togLinks').addEventListener('click',function(){ this.classList.toggle('on'); S.showLinks=this.classList.contains('on'); });
+document.getElementById('togGrid').addEventListener('click',function(){ this.classList.toggle('on'); S.showGrid=this.classList.contains('on'); });
+document.getElementById('togHighlight').addEventListener('click',function(){ this.classList.toggle('on'); S.highlightSel=this.classList.contains('on'); });
+document.getElementById('togDim').addEventListener('click',function(){ this.classList.toggle('on'); S.dimUnmatched=this.classList.contains('on'); });
+
+document.getElementById('rSize').addEventListener('input',e=>{ S.pointSize=+e.target.value; });
+document.getElementById('rOpacity').addEventListener('input',e=>{ S.opacity=+e.target.value/100; });
+document.getElementById('rMinSim').addEventListener('input',e=>{ S.minSim=+e.target.value/100; });
+document.getElementById('selK').addEventListener('change',e=>{ S.kNeighbors=+e.target.value; });
+
+document.getElementById('advApply').addEventListener('click',()=>{ draw(); closeAdv(); });
+document.getElementById('advReset').addEventListener('click',()=>{
+  S.pointSize=4; S.opacity=0.8; S.showLinks=true; S.showGrid=false;
+  S.highlightSel=true; S.dimUnmatched=true; S.kNeighbors=8; S.minSim=0.5;
+  document.getElementById('rSize').value=4;
+  document.getElementById('rOpacity').value=80;
+  document.getElementById('rMinSim').value=50;
+  document.getElementById('selK').value=8;
+  ['togLinks','togHighlight','togDim'].forEach(id=>document.getElementById(id).classList.add('on'));
+  document.getElementById('togGrid').classList.remove('on');
+  draw();
+});
+
+/* ── Resize ─────────────────────────────────────────────────── */
+window.addEventListener('resize',()=>{ canvasSize(); draw(); });
+
+/* ── Boot ───────────────────────────────────────────────────── */
+canvasSize();
+loadData();
+</script>
+</body>
+</html>
